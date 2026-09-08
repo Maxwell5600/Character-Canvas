@@ -7,6 +7,14 @@ Sibling extension to Persona Library, same visual language, pointed at character
 <img width="1918" height="917" alt="Screenshot 2026-09-08 003356" src="https://github.com/user-attachments/assets/1d989647-c8b4-41ae-969b-3bccad1b176b" />
 <img width="1918" height="912" alt="Screenshot 2026-09-08 003426" src="https://github.com/user-attachments/assets/bd1cc846-ae39-4694-a7a4-67b946865ce3" />
 <img width="1918" height="912" alt="Screenshot 2026-09-08 003630" src="https://github.com/user-attachments/assets/c5b43a7f-c6d3-4d62-a535-06fd5074ef5f" />
+<img width="1918" height="921" alt="Screenshot 2026-09-08 010306" src="https://github.com/user-attachments/assets/d88292a4-34b7-4c20-a476-abe9562b4da4" />
+<img width="1918" height="917" alt="Screenshot 2026-09-08 010328" src="https://github.com/user-attachments/assets/8689bfea-e4be-4919-a289-320c447cd0fe" />
+<img width="1918" height="917" alt="Screenshot 2026-09-08 010335" src="https://github.com/user-attachments/assets/bdb766e8-45a3-4013-b102-cd4b0bd5ca5a" />
+<img width="1918" height="918" alt="Screenshot 2026-09-08 010423" src="https://github.com/user-attachments/assets/50dc0c45-d7d4-417f-9cc5-713c9d108870" />
+<img width="1918" height="912" alt="Screenshot 2026-09-08 010456" src="https://github.com/user-attachments/assets/ba7819c6-09d1-4c29-9e3f-c441c15b49c6" />
+
+
+
 
 The gallery
 Grid of portraits instead of the default list — search, sort, and a tile-size slider all live in one toolbar above the grid.
