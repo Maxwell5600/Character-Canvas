@@ -1,0 +1,1816 @@
+/*
+ * Character Canvas — shared stylesheet.
+ * Used by the SillyTavern extension AND by the workspace preview route,
+ * so the two can never drift apart.
+ *
+ * All colors come from SillyTavern theme variables with sane fallbacks.
+ */
+
+.cc-root {
+    --cc-text: var(--SmartThemeBodyColor, #e6e6e6);
+    --cc-accent: var(--SmartThemeQuoteColor, #6ea8fe);
+    --cc-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+    --cc-surface: var(--black30a, rgba(0, 0, 0, 0.3));
+    --cc-surface-2: var(--white5a, rgba(255, 255, 255, 0.05));
+    --cc-tile: 150px;
+
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    color: var(--cc-text);
+    font-size: 0.95em;
+}
+
+.cc-root *,
+.cc-root *::before,
+.cc-root *::after {
+    box-sizing: border-box;
+}
+
+/* ---------- toolbar ---------- */
+
+.cc-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 0 2px 2px;
+}
+
+.cc-search {
+    flex: 1 1 160px;
+    min-width: 0;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    font-size: inherit;
+}
+
+.cc-select {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    font-size: 0.9em;
+    max-width: 45%;
+}
+
+.cc-size {
+    accent-color: var(--cc-accent);
+    width: 140px !important;
+    flex: 0 0 140px !important;
+}
+
+.cc-count {
+    font-size: 0.8em;
+    opacity: 0.6;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* ---------- body / grid ---------- */
+
+.cc-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.cc-grid-wrap {
+    height: 100%;
+    width: 100%;
+    min-height: 120px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2px;
+}
+
+.cc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--cc-tile), 1fr));
+    gap: 3px;
+}
+
+.cc-tile {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--cc-surface-2);
+    border: 1px solid transparent;
+    padding: 0;
+    display: block;
+    width: 100%;
+    transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.cc-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--cc-border);
+}
+
+.cc-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+}
+
+.cc-tile-favorite {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    color: gold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    font-size: 0.95em;
+    pointer-events: none;
+}
+
+.cc-tile-name {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 14px 6px 5px;
+    font-size: 0.8em;
+    line-height: 1.2;
+    text-align: left;
+    color: #fff;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cc-tile:hover .cc-tile-name,
+.cc-tile:focus-visible .cc-tile-name,
+.cc-tile.cc-selected .cc-tile-name {
+    opacity: 1;
+}
+
+.cc-tile.cc-selected {
+    border-color: var(--cc-accent);
+}
+
+.cc-tile.cc-active {
+    border-color: var(--cc-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cc-accent) 60%, transparent);
+}
+
+.cc-tile.cc-active::after {
+    content: "ACTIVE";
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.62em;
+    letter-spacing: 0.08em;
+    background: var(--cc-accent);
+    color: #000;
+    font-weight: 700;
+}
+
+.cc-empty {
+    padding: 24px 8px;
+    text-align: center;
+    opacity: 0.6;
+    font-size: 0.9em;
+}
+
+/* ---------- detail panel ---------- */
+
+.cc-detail {
+    position: fixed;
+    inset: 0;
+    /* ST's own popups/drawers commonly sit in the thousands; 5 was nowhere
+       near enough once this stopped being trapped inside a low-stacking
+       ancestor (see the portal note above) — it needs to actually outrank
+       the main chat UI, not just be "a bit above" its own panel. */
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.cc-detail[hidden] {
+    display: none;
+}
+
+/* the actual modal box: capped size, centered, NOT full-bleed */
+.cc-detail-modal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: min(94cqi, 1700px);
+    height: 100%;
+    max-height: 100%;
+    /* A solid color, not derived from the theme's translucent --cc-surface
+       (rgba alpha 0.3) via color-mix — mixing two translucent colors still
+       leaves real transparency no matter the ratio, which is why this kept
+       looking see-through no matter how the mix percentages were tuned. */
+    background: rgb(17, 18, 23);
+    border: 1px solid var(--cc-border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+/* -- header: big name on the left, icon actions + save + close on the right --
+   flex-wrap is unconditional (not gated behind a width breakpoint) on
+   purpose: this row's total button count changes over time (three lock
+   buttons were added after this was last tuned, and clipped Save/Close off
+   the edge below the OLD single hard-coded breakpoint that assumed the OLD
+   button count). Wrapping based on actual available space, rather than a
+   magic pixel number tied to whatever the button count happened to be at
+   the time, means this can't quietly break again the next time a button is
+   added — it degrades to a second row instead of overflowing, at any width,
+   with any number of buttons. */
+.cc-detail-header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding: 12px 16px;
+}
+
+/* -- tab bar: Details / Edit, underline style matching the CharLib reference -- */
+.cc-detail-tabs {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--cc-border);
+}
+
+.cc-detail-tab {
+    background: transparent;
+    border: none;
+    color: inherit;
+    opacity: 0.6;
+    font-size: 0.9em;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.cc-detail-tab:hover {
+    opacity: 0.85;
+}
+
+.cc-detail-tab.active {
+    opacity: 1;
+    color: var(--cc-accent);
+    border-bottom-color: var(--cc-accent);
+}
+
+.cc-detail-header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 200px; /* shrinks first, wraps to its own row once it can't */
+}
+
+.cc-active-pill {
+    flex: 0 0 auto;
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--cc-accent);
+    color: #000;
+}
+
+.cc-name-input {
+    font-size: 1.3em;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    color: var(--cc-accent);
+    min-width: 0;
+    padding: 2px 4px;
+    border-radius: 6px;
+}
+
+.cc-name-input:focus {
+    outline: none;
+    background: var(--cc-surface-2);
+}
+
+/* The actual root cause of Save/Close getting clipped on narrower screens
+   used to be `flex: 0 0 auto` here — flex-shrink: 0 meant this row was
+   forbidden from ever getting narrower than ALL its buttons laid out in one
+   line, no matter how little room was available, so it just overflowed
+   straight off the modal's edge (clipped by .cc-detail-modal's own
+   overflow: hidden) rather than wrapping — no width breakpoint could have
+   fixed that on its own, since the row never became width-constrained in
+   the first place for its own flex-wrap to have anything to react to.
+   Letting it actually shrink (flex: 1 1 auto + min-width: 0, the latter
+   overriding a flex item's default min-width: auto content floor) plus
+   flex-wrap here specifically (not just on the parent) makes this reflow
+   onto a second row purely based on available space, at any width, with
+   however many buttons happen to be here — not tied to a specific button
+   count or a magic pixel number that needs re-tuning every time one gets
+   added. */
+.cc-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.cc-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95em;
+}
+
+.cc-icon-btn:hover {
+    background: color-mix(in srgb, var(--cc-accent) 25%, transparent);
+}
+
+.cc-back-to-grid {
+    /* Always icon-only and the same 34x34 square as every other header
+       icon button now, not just below a narrow-screen breakpoint — a
+       button carrying its own text label was consistently the widest
+       thing in this row and the main reason it needed special-casing at
+       all. The hover title (set in gallery.js) still says what it does. */
+
+    /* NOT margin-right: auto — .cc-header-actions is `flex: 1 1 auto` (so
+       it can grow/shrink to actually fix the overflow bug elsewhere in
+       this file), which means "auto" here claimed ALL the row's leftover
+       space on a wide screen, stranding this button alone with a huge,
+       width-dependent gap before the real action cluster — reading as
+       "randomly floating in the middle," not "separated from the other
+       buttons." A small FIXED gap gets the actual goal (a deliberate
+       buffer so this doesn't get misclicked alongside "Use this persona,"
+       WITHOUT drifting away from the rest of the toolbar as the window
+       gets wider) without re-introducing that unbounded-space problem.
+       Deliberately margin only, NOT padding-right/border-right directly
+       on this button: those consume space INSIDE the button's own content
+       box, and since .cc-icon-btn (the base class) centers its content
+       via flexbox, asymmetric interior padding pushed the icon visibly
+       off-center and made this one button a different, wider shape than
+       every other 34x34 icon button next to it. margin sits OUTSIDE the
+       box entirely, so this stays a perfectly plain, centered square like
+       all its neighbors — the divider line is a pseudo-element floating
+       in that external gap instead, not part of the button itself. */
+    position: relative;
+    margin-right: 18px;
+}
+
+.cc-back-to-grid::after {
+    /* The divider line itself, floating in the margin gap created above —
+       not inside the button, so it can't affect the button's own interior
+       centering the way padding/border-right did. */
+    content: '';
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    right: -10px;
+    width: 1px;
+    background: var(--cc-border);
+}
+
+/* Composite "back to grid" icon: a hand-drawn 2x2 grid as the main shape,
+   with a small hand-drawn back-arrow badge in the bottom-left corner. Both
+   are plain inline SVG (built directly in gallery.js, not Font Awesome
+   glyphs) — the earlier fa-layers-based version of this icon (matching
+   the Chat Lock badge's pattern) rendered unreliably in practice
+   (undersized, badge not appearing at all), so this sidesteps font-glyph
+   rendering for this one icon entirely rather than patching that further.
+
+   Every dimension here is a fixed PX, on purpose — no em anywhere in this
+   icon. The stack was 1.15em (computing to ~14.5px through .cc-root's
+   0.95em times .cc-icon-btn's own 0.95em) while an earlier pass set the
+   badge to a fixed 15px — the badge ended up LARGER than the entire icon
+   it was meant to be a small corner accent on, which is exactly why it
+   swallowed the grid instead of sitting beside it. Fixed pixels for both,
+   checked against each other directly below, so the badge is verifiably
+   ~55% of the main icon's size rather than a guess that happened to land
+   badly. */
+.cc-back-to-grid-icon-stack {
+    position: relative;
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+}
+
+.cc-back-to-grid-icon-stack > svg {
+    /* The main grid shape fills the stack box completely — plain SVG
+       sizing, not dependent on any font's own glyph metrics. */
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.cc-back-to-grid-icon-badge {
+    position: absolute;
+    /* 11px circle against a 20px icon — clearly the smaller of the two,
+       not a near-duplicate of it. -4px offset means a bit more than half
+       the badge sits OUTSIDE the grid's own 20x20 box, in open space next
+       to it, rather than buried on top of it — same "small accent tucked
+       into the corner" look the original mockup had. */
+    left: -4px;
+    bottom: -4px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--cc-surface-2);
+    border: 1px solid var(--cc-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cc-back-to-grid-icon-badge svg {
+    width: 7px;
+    height: 7px;
+    display: block;
+    /* Deliberately NOT currentColor here (unlike the grid shape above) —
+       currentColor inherits this button's ordinary muted icon color,
+       which doesn't stand out against a dark badge circle sitting on a
+       dark button. --cc-accent is the same color this file already uses
+       for "pay attention to this" states elsewhere (the active/"in use"
+       checkmark, the lock-active highlight), so a bright arrow reads as
+       deliberately called-out rather than blending into the rest of the
+       icon at a glance. */
+    color: var(--cc-accent);
+}
+
+.cc-icon-btn.cc-icon-primary {
+    border-color: var(--cc-accent);
+    color: var(--cc-accent);
+}
+
+.cc-icon-btn.cc-icon-active {
+    background: var(--cc-accent);
+    color: #000;
+}
+
+.cc-icon-btn.cc-icon-danger:hover {
+    background: color-mix(in srgb, #e5484d 35%, transparent);
+    border-color: #e5484d;
+}
+
+/* Native persona locks (default / character / chat) — see isPersonaLockable()
+   in st-adapter.js. Amber/gold is used deliberately here rather than the
+   usual accent color, echoing the yellow-border convention ST's own native
+   Persona Management panel already uses to mark the default persona, so a
+   locked state reads as "locked" at a glance rather than just "selected". */
+.cc-icon-btn.cc-lock-btn.cc-lock-active {
+    background: color-mix(in srgb, #f5b942 30%, transparent);
+    border-color: #f5b942;
+    color: #f5b942;
+}
+
+.cc-icon-btn.cc-lock-btn.cc-lock-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.cc-icon-btn.cc-lock-btn.cc-lock-disabled:hover {
+    background: var(--cc-surface-2);
+}
+
+/* Composite "chat lock" icon: a message/page glyph with a small lock badge
+   layered on top — fa-layers handles the stacking, we just position the
+   badge into the bottom-right corner and give it a little backing plate so
+   it stays legible over the message glyph's own strokes. */
+.cc-lock-icon-stack {
+    position: relative;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+}
+
+.cc-lock-icon-badge {
+    position: absolute;
+    right: -0.3em;
+    bottom: -0.3em;
+    font-size: 0.55em;
+    background: var(--cc-surface-2);
+    border-radius: 50%;
+    padding: 0.2em;
+    line-height: 1;
+    /* Same bare-.fa-lock collision as the Default button (see the
+       .cc-lock-icon-plain fix below) — this badge carries .fa-lock too,
+       so it needs the identical forced-visibility treatment or it
+       disappears the same way the Default icon did. */
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.cc-icon-btn.cc-lock-btn.cc-lock-active .cc-lock-icon-badge {
+    background: color-mix(in srgb, #f5b942 55%, var(--cc-surface-2));
+}
+
+/* Forces the Default-lock icon visible regardless of whatever native ST
+   CSS scoping around its own .fa-lock persona-lock buttons was hiding
+   it — see the comment in gallery.js's lockIcon(). Scoped tightly to our
+   own wrapper class so this can't leak out and affect anything native. */
+.cc-lock-icon-plain {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+}
+
+.cc-lock-icon-plain .fa-lock {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: inherit !important;
+    color: inherit !important;
+}
+
+.cc-detail-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cc-detail-close:hover {
+    background: color-mix(in srgb, #e5484d 35%, transparent);
+    border-color: #e5484d;
+}
+
+/* -- body: large image left, scrollable fields right, CharLib-style split -- */
+.cc-detail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 0;
+}
+
+.cc-detail-hero-wrap {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 45%;
+    overflow: hidden;
+    background: #000;
+    border-right: 1px solid var(--cc-border);
+    /* Column: the image area on top, the prev/next bar below it — not an
+       overlay on the photo anymore, see .cc-hero-nav-bar. */
+    display: flex;
+    flex-direction: column;
+}
+
+.cc-hero-img-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.cc-detail-hero {
+    /* Fit the frame to the image's OWN proportions instead of stretching a
+       fixed-width box around it — height fills the available area, width
+       follows the image's real aspect ratio, so there's no dead black
+       margin. */
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+    cursor: zoom-in;
+    transition: filter 0.15s ease;
+}
+
+.cc-detail-hero:hover {
+    filter: brightness(1.08);
+}
+
+/* -- prev/next navigation: a slim bar under the photo, not an overlay on
+   top of it. Previously these were absolutely-positioned circles floating
+   over the image itself — reads as disconnected from the rest of the UI
+   (and on the stacked mobile layout, where the photo is full-width, they'd
+   land right on the subject). Living in normal flex flow here instead
+   means there's no "centered on what, exactly?" positioning question at
+   all — it just sits below the image, in every layout, full stop. */
+.cc-hero-nav-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px;
+    background: var(--cc-surface-2);
+    border-top: 1px solid var(--cc-border);
+}
+
+.cc-hero-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9em;
+}
+
+.cc-hero-nav-btn:hover {
+    background: color-mix(in srgb, var(--cc-accent) 25%, transparent);
+}
+
+/* -- lightbox: click-to-enlarge for the hero image, above the detail modal -- */
+.cc-lightbox {
+    position: fixed;
+    inset: 0;
+    /* Has to outrank .cc-detail's own 99999, not the old assumed baseline —
+       otherwise it renders correctly built but paints underneath the modal
+       it was opened from. */
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: rgba(0, 0, 0, 0.88);
+    cursor: zoom-out;
+}
+
+.cc-lightbox[hidden] {
+    display: none;
+}
+
+.cc-lightbox-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    cursor: default;
+}
+
+.cc-lightbox-close {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--cc-border);
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 1.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cc-lightbox-close:hover {
+    background: rgba(0, 0, 0, 0.75);
+}
+
+/* -- "expand to full screen" editor for a Section's text body -- */
+.cc-text-focus-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000; /* same tier as the image lightbox — mutually exclusive with it, never open together */
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.92);
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.cc-text-focus-overlay[hidden] {
+    display: none;
+}
+
+.cc-text-focus-bar {
+    flex: 0 0 auto;
+    padding: 0 56px 12px 4px; /* right padding clears the fixed close button */
+}
+
+.cc-text-focus-title {
+    font-weight: 600;
+    font-size: 1.05em;
+    opacity: 0.85;
+}
+
+.cc-text-focus-area {
+    flex: 1 1 auto;
+    width: 100%;
+    box-sizing: border-box;
+    resize: none; /* already full-viewport, a manual resize handle has nothing to add here */
+    padding: 16px 20px;
+    border-radius: 10px;
+    border: 1px solid var(--cc-border);
+    background: rgb(17, 18, 23);
+    color: inherit;
+    font: inherit;
+    font-size: 1.05em;
+    line-height: 1.6;
+}
+
+.cc-text-focus-area:focus {
+    outline: none;
+    border-color: var(--cc-accent);
+}
+
+.cc-text-focus-area:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+/* -- the small expand button sitting in the corner of a Section's compact textarea -- */
+.cc-section-content-wrap {
+    position: relative;
+}
+
+.cc-section-expand-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    opacity: 0.55;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+}
+
+.cc-section-expand-btn:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--cc-accent) 20%, var(--cc-surface));
+}
+
+.cc-detail-fields {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain; /* see the wheel/touchmove guard in gallery.js — stops scroll chaining into the gallery grid behind the modal once this hits its own top/bottom */
+    /* Deliberate belt-and-suspenders against horizontal overflow on narrow
+       screens (the X buttons on Sections rows reported "spilling off
+       screen"). Tested the section-row flex layout itself exhaustively
+       (280-400px, box-sizing confirmed border-box throughout) and it
+       correctly shrinks at every width tested — so the row itself isn't
+       the actual culprit. Far more likely: something else in this column
+       (a long unbroken word, a URL, any fixed-width content) was forcing
+       the whole column wider than the viewport, and the X buttons —
+       sitting at the far right edge of each row — are just the first
+       thing that visibly falls off as a result. This guarantees nothing
+       in here can force that, regardless of exact source, rather than
+       chasing one specific element without a live repro to confirm
+       against.
+    */
+    overflow-x: hidden;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cc-detail-fields * {
+    /* Long unbroken text (a URL, a run-on word in a persona description)
+       is the classic way a flex/text container gets silently forced wider
+       than its parent regardless of any flex-shrink/min-width setup —
+       overflow-wrap alone only breaks at existing word boundaries; this
+       allows a break mid-word as a last resort so nothing can push the
+       column's scrollWidth past its clientWidth. */
+    overflow-wrap: anywhere;
+}
+
+/* -- read-only "Details" tab, styled after the CharLib reference -- */
+/* -- "Preview" tab: exactly what the AI receives -- */
+.cc-preview-view {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.cc-preview-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 0.78em;
+    opacity: 0.65;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--cc-border);
+}
+
+.cc-preview-output {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: var(--cc-surface-2);
+    border: 1px solid var(--cc-border);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    line-height: 1.6;
+    font-size: 0.92em;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 160px;
+    resize: vertical;
+}
+
+.cc-preview-output.cc-expanded {
+    min-height: 60vh;
+}
+
+/* The main preview box is a direct flex child of .cc-preview-view (display:
+   flex; flex-direction:column;) via `flex: 1 1 auto` above \u2014 that flex-grow
+   makes the browser recompute its height to fill the panel on every layout
+   pass, which fights and silently overrides the native resize handle's
+   drag. Scoped to a child-combinator here so per-target boxes (nested
+   inside a <details>, not a flex container, where flex-grow is inert and
+   resize already works fine) are left untouched.
+   Sized to match the Core Description textarea's own recipe (.cc-field
+   textarea: min-height 120px, no explicit height, flex-grow left at its
+   default of 0) \u2014 that one was never fighting its own resize handle in
+   the first place, for the same underlying reason. */
+.cc-preview-view > .cc-preview-output {
+    flex: 0 0 auto;
+    min-height: 120px;
+}
+
+.cc-preview-view > .cc-preview-output.cc-expanded {
+    min-height: 60vh;
+}
+
+.cc-preview-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cc-preview-toolbar .cc-select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cc-preview-view h4 {
+    margin: 6px 0 2px;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
+.cc-preview-target-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cc-preview-target-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--cc-surface-2);
+    border: 1px solid var(--cc-border);
+    font-size: 0.8em;
+}
+
+.cc-preview-target-status {
+    opacity: 0.6;
+}
+
+.cc-preview-targets {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-preview-target {
+    border: 1px solid var(--cc-border);
+    border-radius: 8px;
+    background: var(--cc-surface-2);
+    overflow: hidden;
+}
+
+.cc-preview-target > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.85em;
+}
+
+.cc-preview-target > summary::-webkit-details-marker {
+    display: none;
+}
+
+.cc-preview-target-label {
+    font-weight: 600;
+}
+
+.cc-preview-target-meta {
+    opacity: 0.6;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+.cc-preview-target > .cc-preview-output {
+    margin: 0 10px 10px;
+    min-height: 100px;
+    max-height: 600px;
+}
+
+.cc-details-view {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.cc-details-metabar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 0.78em;
+    opacity: 0.6;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--cc-border);
+}
+
+.cc-details-id {
+    margin-left: auto;
+    word-break: break-all;
+}
+
+.cc-detail-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-detail-block-title {
+    font-size: 0.78em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    opacity: 0.65;
+}
+
+.cc-detail-block-body {
+    white-space: pre-wrap;
+    line-height: 1.5;
+    font-size: 0.92em;
+    opacity: 0.92;
+}
+
+.cc-details-empty {
+    opacity: 0.55;
+    font-size: 0.85em;
+    padding: 12px 0;
+}
+
+.cc-details-meta {
+    padding-top: 10px;
+    border-top: 1px solid var(--cc-border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* prev/next navigation now lives as .cc-hero-nav-bar / .cc-hero-nav-btn,
+   a slim bar under the photo instead of overlaid circles on top of it —
+   see the comment above .cc-hero-nav-bar. */
+
+.cc-detail h3 {
+    margin: 0;
+    font-size: 1.05em;
+    word-break: break-word;
+}
+
+.cc-detail-sub {
+    font-size: 0.75em;
+    opacity: 0.6;
+    word-break: break-all;
+    margin-top: -4px;
+}
+
+.cc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.cc-field > label {
+    font-size: 0.72em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.cc-field input,
+.cc-field textarea,
+.cc-field select,
+.cc-section-content {
+    width: 100%;
+    padding: 5px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.9em;
+}
+
+.cc-field textarea {
+    min-height: 120px;
+    resize: vertical;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+.cc-row {
+    display: flex;
+    gap: 6px;
+}
+
+.cc-row > * {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.cc-meta {
+    font-size: 0.78em;
+    opacity: 0.75;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.cc-meta b {
+    opacity: 0.65;
+    font-weight: 600;
+}
+
+/* -- extensible sections editor (Outfit, Scene Details, Lore, Rules, Mood, custom) -- */
+.cc-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid var(--cc-border);
+}
+
+.cc-sections h4 {
+    margin: 6px 0 0;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+}
+
+.cc-sections-hint {
+    font-size: 0.75em;
+    opacity: 0.55;
+    margin-top: -4px;
+}
+
+.cc-variants-search {
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    font-size: 0.85em;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cc-token-badge {
+    flex: 0 0 auto;
+    font-size: 0.7em;
+    opacity: 0.55;
+    white-space: nowrap;
+    min-width: 2.5em;
+    text-align: right;
+}
+
+.cc-variants-token-total {
+    font-size: 0.75em;
+    opacity: 0.6;
+    margin-top: -4px;
+}
+
+.cc-sections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cc-section-row {
+    border: 1px solid var(--cc-border);
+    border-radius: 8px;
+    padding: 8px;
+    background: var(--cc-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-section-row-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cc-section-row-head input[type='checkbox'] {
+    accent-color: var(--cc-accent);
+    flex: 0 0 auto;
+}
+
+.cc-drag-handle {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    cursor: grab;
+    opacity: 0.4;
+    padding: 2px 2px;
+    touch-action: none;
+}
+
+.cc-drag-handle:hover {
+    opacity: 0.9;
+}
+
+.cc-drag-handle:active {
+    cursor: grabbing;
+}
+
+.cc-move-btn {
+    /* Smaller than a standard 34x34 .cc-icon-btn — two of these sit right
+       next to the drag handle in an already-busy row (handle, up, down,
+       enabled checkbox, title, remove), and at full icon-button size they
+       crowded the title input on narrow/mobile widths. This is the touch
+       fallback for reordering since the handle's native HTML5 drag
+       doesn't fire on touch at all; :disabled at the top/bottom of the
+       list fades it out rather than removing it, so the row stays a
+       stable height as sections move past each other. */
+    width: 24px;
+    height: 24px;
+    font-size: 0.72em;
+    flex: 0 0 auto;
+}
+
+.cc-move-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+}
+
+.cc-section-row.cc-dragging {
+    opacity: 0.4;
+    border-style: dashed;
+    border-color: var(--cc-accent);
+}
+
+.cc-section-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--cc-border);
+    color: inherit;
+    font-weight: 600;
+    padding: 2px 4px;
+}
+
+.cc-section-title:focus {
+    outline: none;
+    border-bottom-color: var(--cc-accent);
+}
+
+.cc-section-row-head .cc-icon-btn {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+}
+
+.cc-section-content {
+    min-height: 60px;
+    resize: vertical;
+}
+
+.cc-sections-add {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* -- Variants: items/groups, each with a binding control -- */
+.cc-variants {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid var(--cc-border);
+}
+
+.cc-variants h4 {
+    margin: 6px 0 0;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+}
+
+.cc-variants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cc-variant-item {
+    border: 1px solid var(--cc-border);
+    border-radius: 8px;
+    padding: 8px;
+    background: var(--cc-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-variant-group {
+    border: 1px solid var(--cc-accent);
+    border-radius: 8px;
+    padding: 8px;
+    background: color-mix(in srgb, var(--cc-accent) 6%, var(--cc-surface-2));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-variant-group-children {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 18px;
+    padding-left: 10px;
+    border-left: 2px solid var(--cc-border);
+}
+
+/* Collapsed groups: just the header row (chevron, folder icon, title,
+   item count, duplicate/remove buttons) — no gap needed with only one child. */
+.cc-variant-group-collapsed {
+    gap: 0;
+    padding: 6px 8px;
+}
+
+.cc-variant-group-collapse-btn {
+    flex: 0 0 auto;
+}
+
+.cc-variant-group-collapse-btn i {
+    transition: transform 0.15s ease;
+}
+
+.cc-variant-group-count {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--cc-text-dim, var(--cc-text-2, #999));
+    white-space: nowrap;
+    opacity: 0.75;
+}
+
+.cc-binding {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 0 0;
+    border-top: 1px dashed var(--cc-border);
+}
+
+.cc-binding-mode {
+    align-self: flex-start;
+}
+
+.cc-binding-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-binding-manual {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+}
+
+.cc-binding-refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cc-binding-ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px 3px 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--cc-accent) 20%, transparent);
+    border: 1px solid var(--cc-accent);
+    font-size: 0.8em;
+}
+
+.cc-binding-ref-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+}
+
+.cc-binding-ref-remove:hover {
+    opacity: 1;
+}
+
+.cc-binding-match {
+    width: 100%;
+    padding: 5px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.9em;
+}
+
+.cc-variants-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--cc-border);
+}
+
+.cc-variants-joiner {
+    width: 100%;
+    padding: 5px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.9em;
+}
+
+.cc-variants-wrapper-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+}
+
+.cc-variants-wrapper-template {
+    width: 100%;
+    min-height: 50px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.85em;
+    resize: vertical;
+}
+
+/* -- structured (template) section fields: one row per label/value pair -- */
+.cc-section-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cc-field-row {
+    display: grid;
+    /* 1fr alone expands to minmax(auto, 1fr) — "auto" as a track minimum
+       resolves to the content's min-content size, which for a text input
+       is a real, nonzero width browsers won't shrink below on their own.
+       On a narrow container that's enough on its own to push this row
+       wider than available space, shoving the trailing auto-sized expand/
+       remove buttons past the edge — the same "won't actually shrink"
+       trap as the header-actions overflow above, just via CSS Grid instead
+       of flexbox. minmax(0, 1fr) removes that floor so the value column
+       actually gives way before the row overflows. */
+    grid-template-columns: minmax(90px, 34%) minmax(0, 1fr) auto auto;
+    gap: 6px;
+    align-items: center;
+}
+
+.cc-field-label {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--cc-border);
+    color: inherit;
+    opacity: 0.75;
+    font-size: 0.82em;
+    padding: 3px 2px;
+}
+
+.cc-field-label:focus {
+    outline: none;
+    border-bottom-color: var(--cc-accent);
+    opacity: 1;
+}
+
+.cc-field-value {
+    padding: 4px 6px;
+    border-radius: 5px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface);
+    color: inherit;
+    font-size: 0.85em;
+    min-width: 0; /* belt-and-suspenders alongside the grid track fix above */
+}
+
+.cc-field-remove {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+}
+
+.cc-field-expand {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    font-size: 0.72em;
+    opacity: 0.6;
+}
+
+.cc-field-expand:hover {
+    opacity: 1;
+}
+
+.cc-add-field {
+    align-self: flex-start;
+    margin-top: 4px;
+    font-size: 0.78em;
+    padding: 3px 8px;
+}
+
+.cc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.cc-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    color: inherit;
+    font-size: 0.85em;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.cc-btn:hover {
+    background: color-mix(in srgb, var(--cc-accent) 22%, transparent);
+}
+
+.cc-btn.cc-primary {
+    background: var(--cc-accent);
+    border-color: var(--cc-accent);
+    color: #000;
+    font-weight: 600;
+}
+
+.cc-new-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 7px 14px;
+    flex: 0 0 auto;
+}
+
+.cc-btn.cc-danger:hover {
+    background: color-mix(in srgb, #e5484d 35%, transparent);
+    border-color: #e5484d;
+}
+
+.cc-btn[disabled] {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.cc-note {
+    font-size: 0.75em;
+    opacity: 0.7;
+    min-height: 1em;
+}
+
+/* ---------- narrow / mobile / narrow PTMT pane ---------- */
+
+@container (max-width: 620px) {
+    .cc-detail {
+        padding: 0;
+    }
+
+    .cc-detail-modal {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 0;
+    }
+
+    .cc-detail-body {
+        flex-direction: column;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .cc-detail-hero-wrap {
+        flex: 0 0 220px;
+        max-width: none;
+        border-right: none;
+        border-bottom: 1px solid var(--cc-border);
+    }
+
+    /* Let ONLY .cc-detail-body's own scroll (immediately above) govern the
+       whole column here — image, nav bar, and tab content scroll TOGETHER
+       as one unit. Without this, each tab's own independent overflow-y:auto
+       (correct on wide screens, where the image and content sit side by
+       side and only the content column should scroll on its own) quietly
+       absorbs all the overflow internally before .cc-detail-body's outer
+       scroll ever gets a chance to activate — these are flex: 1 1 auto, so
+       they just grow to fill whatever's left after the fixed-height hero
+       image and scroll THEIR OWN overflow, meaning .cc-detail-body's total
+       rendered height never actually exceeds its container and its own
+       overflow-y:auto above never triggers. Net effect without this: the
+       hero image and header are structurally pinned at the top forever on
+       a narrow/short screen — permanently eating space with no way to
+       scroll them out of the way to see more of what you're editing. */
+    .cc-detail-fields,
+    .cc-preview-view,
+    .cc-details-view {
+        overflow-y: visible;
+        /* flex: 1 1 auto (the base rule) stretches this to fill whatever's
+           left in the row — which is exactly the height it then needs
+           something to scroll WITHIN, defeating the point above.
+           flex: 0 0 auto instead sizes it to its own true content height,
+           like a normal block element, so there's nothing of its own left
+           to scroll — the true total height (image + this) is what
+           .cc-detail-body actually sees and scrolls. Confirmed empirically:
+           overflow-y: visible alone did NOT reliably make an ancestor flex
+           container's scrollHeight account for an auto-stretched flex
+           child's true content extent in this nested arrangement — this
+           does, verified with real scroll measurements before shipping. */
+        flex: 0 0 auto;
+    }
+
+    /* Nav arrows are no longer overlaid on the image at all (see
+       .cc-hero-nav-bar) — they're a normal in-flow bar under the photo now,
+       so there's nothing layout-specific left to override here. */
+
+    .cc-select {
+        max-width: none;
+    }
+
+    /* Back to Grid is always icon-only and 34x34 now (see the base
+       .cc-back-to-grid rule) — nothing narrow-specific left to do here
+       either; the old media-query-only shrink rule is gone since the
+       base rule now does this unconditionally. */
+
+    /* Wrapping itself (name/pill vs. action icons onto separate rows, and
+       the icons further wrapping among themselves) is now unconditional —
+       see the base .cc-detail-header and .cc-header-actions rules above,
+       which is what actually fixes buttons getting clipped rather than a
+       breakpoint. What's still narrow-specific here is just forcing the
+       name+pill onto its own guaranteed full-width row below this size,
+       rather than leaving it to flex-wrap's natural (sometimes-shares-a-
+       row) behavior, since the name reads better with room to breathe. */
+    .cc-detail-header-title {
+        flex: 1 1 100%;
+    }
+}
+
+@container (max-width: 340px) {
+    .cc-root {
+        --cc-tile: 100px;
+    }
+
+    .cc-count,
+    .cc-size {
+        display: none;
+    }
+}
+
+/* host hooks */
+#character-canvas-host {
+    display: flex;
+    flex-direction: column;
+    /* height:100% only resolves to something real if the ancestor chain
+       has a definite height — true inside a PTMT pane, NOT guaranteed for
+       the plain native drawer (which can be auto-height/collapsed). The
+       min-height fallback keeps this usable either way instead of
+       collapsing to near-zero when there's no PTMT pane providing one. */
+    min-height: 70vh;
+    height: 100%;
+    width: 100%;
+}
+
+/* Take over the ENTIRE native Character Management drawer. #right-nav-panel
+   is SillyTavern's drawer-content wrapper for that whole panel — hiding
+   every sibling of our host here (rather than the narrower
+   #rm_characters_block, which sits nested one level deeper and left
+   #CharListButtonAndHotSwaps's pin/hotswap bar and #rm_PinAndTabs's
+   character-name header floating above it, unreachable) guarantees nothing
+   native, and nothing any OTHER extension injects into this same drawer
+   (e.g. PTMT's dialogue colorizer accordion), can show through beside the
+   gallery.
+   :not(.cc-native-override) is the passthrough escape hatch — see
+   #character-canvas-native-toggle in index.js. There's no native "open"
+   button to click through to here; the native UI is simply hidden by THIS
+   rule, so reaching it means temporarily suspending the rule itself rather
+   than triggering anything. Also exempts our own always-visible toggle
+   button so it doesn't hide itself along with everything else. */
+body.cc-active:not(.cc-native-override) #right-nav-panel > *:not(#character-canvas-host):not(#character-canvas-native-toggle) {
+    display: none !important;
+}
+
+/* Mirror image of the rule above: while override mode is on, hide OUR host
+   instead, so the native UI (now unhidden) doesn't render underneath/behind
+   it. The toggle button itself is exempted here the same way, so it stays
+   visible to switch back regardless of which mode is active. */
+body.cc-active.cc-native-override #character-canvas-host {
+    display: none !important;
+}
+
+#character-canvas-native-toggle {
+    align-self: flex-start;
+    margin: 0 0 4px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid var(--cc-border, #444);
+    background: var(--cc-surface-2, #2a2a2a);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.74em;
+    line-height: 1.4;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    z-index: 1;
+}
+
+/* #right-nav-panel itself is a flex column with padding/gap meant for the
+   native stacked sections (the pin/hotswap bar, the name header, the list).
+   We only adjust padding here — NOT display, since ST's own drawer
+   open/closed toggle also targets this element's display, and forcing it
+   with !important was beating that toggle whenever PTMT wasn't around to
+   own visibility instead (the drawer could never actually collapse). Our
+   own host below sets its own flex layout regardless of whatever display
+   value the parent (native drawer or a PTMT pane) ends up giving it. */
+body.cc-active #right-nav-panel {
+    padding: 8px !important;
+}
+
+/* THE reason this drawer looks cramped next to Persona Management even with
+   no pane-manager (PTMT) involved at all: confirmed directly against
+   SillyTavern's own style.css. #right-nav-panel carries an extra native
+   class, .fillRight, that #PersonaManagement simply doesn't have.
+   .fillRight is SillyTavern's own "narrow side panel pinned to the right
+   edge" treatment (originally meant for things like the World Info panel
+   sitting beside the chat) — it hard-codes:
+     width: calc((100vw - var(--sheldWidth) - 2px) / 2);
+     position: fixed; right: 0;
+   i.e. deliberately HALF of whatever space is left beside the main chat
+   column, not a bug, just the wrong treatment for a gallery that wants to
+   be the main event. #PersonaManagement instead falls through to the plain
+   base .drawer-content rule — width: var(--sheldWidth) (the SAME width as
+   the main chat pane itself), centered — which is why it's already wide
+   with nothing extra needed.
+   This restores that same base .drawer-content sizing specifically for
+   #right-nav-panel while the gallery is active, undoing .fillRight's
+   narrow/fixed treatment. Desktop-only (min-width: 1001px) — SillyTavern's
+   own mobile-styles.css already forces #right-nav-panel to a full 100dvw
+   at (max-width: 1000px) regardless of .fillRight, so there's nothing to
+   fix below that breakpoint, and this would only risk fighting that rule
+   if left unscoped.
+
+   CRITICAL: also backed off entirely whenever PTMT (ProbablyTooManyTabs) is
+   managing this specific drawer. Confirmed directly against PTMT's own
+   style.css: it forces .fillRight to `width: auto !important; max-width:
+   none !important; position: static !important` so the drawer can stretch
+   to fill whatever pane container PTMT has placed it in — the ID selector
+   below (#right-nav-panel.fillRight) has HIGHER specificity than PTMT's
+   bare `.fillRight`, so without this guard our fixed var(--sheldWidth)
+   would always win and silently fight PTMT's own sizing, which is exactly
+   what broke "fill the whole PTMT tab." PTMT nests any drawer it's taken
+   over inside a `.ptmt-pane-grid` container (confirmed against its source:
+   `.ptmt-pane-grid .drawer-content` and `.ptmt-pane-grid...:is(#right-nav-
+   panel, ...)` both exist there) — :has() lets us detect that structurally
+   instead of guessing at a body-level "PTMT is on" flag, which PTMT
+   doesn't actually expose.
+
+   VERTICAL sizing also needed fixing here, not just width — confirmed
+   directly against SillyTavern's own style.css again: .fillRight's own
+   max-height only subtracts --topBarBlockSize, while the plain
+   .drawer-content rule #PersonaManagement actually uses subtracts BOTH
+   --topBarBlockSize AND --bottomFormBlockSize (the chat input bar). On top
+   of that, `.fillRight.openDrawer` forces `height: 100%` (fills that
+   max-height exactly), while plain `.drawer-content.openDrawer` uses
+   `height: auto` (content-driven, actually settled by our OWN host's
+   min-height: 70vh fallback in practice, not the drawer's cap at all).
+   Net effect: #right-nav-panel was ACTUALLY TALLER than #PersonaManagement
+   by --bottomFormBlockSize's worth of pixels, on every single character,
+   regardless of that character's own photo — and since the hero image
+   column's width is calculated from the image's aspect ratio times
+   whatever height it's given (see syncHeroWidth() in gallery.js), a taller
+   box computes a WIDER hero column for the exact same photo, which is
+   what was actually squeezing the content side. Confirmed by testing the
+   identical image in both extensions and still seeing the gap — that
+   ruled out image-aspect-ratio as the cause and pointed straight at this. */
+@media screen and (min-width: 1001px) {
+    body.cc-active:not(.cc-native-override):not(:has(.ptmt-pane-grid #right-nav-panel)) #right-nav-panel.fillRight {
+        position: absolute !important;
+        width: var(--sheldWidth) !important;
+        max-width: var(--sheldWidth) !important;
+        min-width: 450px !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin: 0 auto !important;
+        top: var(--topBarBlockSize) !important;
+        max-height: calc(100vh - calc(var(--topBarBlockSize) + var(--bottomFormBlockSize))) !important;
+        max-height: calc(100dvh - calc(var(--topBarBlockSize) + var(--bottomFormBlockSize))) !important;
+    }
+
+    body.cc-active:not(.cc-native-override):not(:has(.ptmt-pane-grid #right-nav-panel)) #right-nav-panel.fillRight.openDrawer {
+        height: auto !important;
+    }
+}
