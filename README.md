@@ -1,6 +1,6 @@
 # Character-Canvas
 Silly Tavern Extension 
-Sibling extension to Persona Library which was Inspired By Character Library. Character Canvas does much less than Character Library And I Would Highly Recommend using that over this Or Like i chose to do Use them In Conjunction. Character Library adds its own Whole menu Character Canvas Overtakes The Native Character Menu. (Written By Maxwell) 
+This is A Sibling extension to Persona Library which was Inspired By Character Library. Character Canvas does much less than Character Library And I Would Highly Recommend using that over this Or Like i chose to do Use them In Conjunction. Character Library adds its own Whole menu Character Canvas Overtakes The Native Character Menu. (Written By Maxwell) 
 
 A full-bleed gallery grid for your characters, replacing SillyTavern's native Character Management list — with every native character field kept as its own real, editable box, plus one custom feature layered on top: Sections.
 
