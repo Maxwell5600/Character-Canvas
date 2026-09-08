@@ -4,7 +4,7 @@ Sibling extension to Persona Library which was Inspired By Character Library. Ch
 A full-bleed gallery grid for your characters, replacing SillyTavern's native Character Management list — with every native character field kept as its own real, editable box, plus one custom feature layered on top: Sections.
 
 Sibling extension to Persona Library, same visual language, pointed at characters instead of personas.
-<img width="1918" height="917" alt="Screenshot 2026-09-08 003356" src="https://github.com/user-attachments/assets/de533bf9-2489-4053-ba41-2936b0d3d88c" />
+<img width="1918" height="917" alt="Screenshot 2026-09-08 003356" src="https://github.com/user-attachments/assets/1d989647-c8b4-41ae-969b-3bccad1b176b" />
 <img width="1918" height="912" alt="Screenshot 2026-09-08 003426" src="https://github.com/user-attachments/assets/bd1cc846-ae39-4694-a7a4-67b946865ce3" />
 <img width="1918" height="912" alt="Screenshot 2026-09-08 003630" src="https://github.com/user-attachments/assets/c5b43a7f-c6d3-4d62-a535-06fd5074ef5f" />
 
