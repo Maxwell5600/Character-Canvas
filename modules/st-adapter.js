@@ -148,6 +148,96 @@ function toGreetingsArray(g) {
     return [];
 }
 
+/*
+ * Token counts, for sorting by "how heavy is this card".
+ *
+ * What's counted: everything on the card that actually gets sent to the
+ * model as part of the character definition — Description (the real, fully
+ * composed text, Sections included), Personality, Scenario, First Message,
+ * Example Dialogue, System Prompt, Post-History Instructions and the Depth
+ * Prompt text. Creator's Notes, tags, and alternate greetings are NOT
+ * counted: Creator's Notes never reaches the model at all, and only one
+ * greeting is ever sent per chat.
+ *
+ * Counting 280+ cards is real work (the tokenizer can be async/remote), so
+ * results are cached per avatar, keyed by a cheap hash of the text — edit a
+ * card and only that card gets recounted. Counting runs in the background
+ * with a small concurrency cap and never blocks the grid.
+ */
+const tokenCache = new Map(); // avatar -> { sig, count }
+let tokenRun = null;
+
+function cardTokenText(c) {
+    const d = c.data ?? {};
+    const depth = d.extensions?.depth_prompt ?? {};
+    return [
+        c.description ?? d.description,
+        c.personality ?? d.personality,
+        c.scenario ?? d.scenario,
+        c.first_mes ?? d.first_mes,
+        c.mes_example ?? d.mes_example,
+        d.system_prompt,
+        d.post_history_instructions,
+        depth.prompt,
+    ].filter((x) => typeof x === 'string' && x.trim()).join('\n');
+}
+
+function hashString(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return h >>> 0;
+}
+
+function cardTextFor(c) {
+    const text = cardTokenText(c);
+    return { text, sig: `${text.length}:${hashString(text)}` };
+}
+
+/**
+ * Counts tokens for every card whose cached count is missing or stale.
+ * Safe to call repeatedly — if a run is already going, you get that run's
+ * promise (and your progress callback is attached to it) instead of a second
+ * run racing the first. Resolves with how many cards were (re)counted.
+ */
+export function countAllTokens({ onProgress } = {}) {
+    if (tokenRun) {
+        if (onProgress) tokenRun.listeners.add(onProgress);
+        return tokenRun.promise;
+    }
+    const list = ctx()?.characters ?? [];
+    const todo = [];
+    for (const c of list) {
+        const { text, sig } = cardTextFor(c);
+        const cached = tokenCache.get(c.avatar);
+        if (!cached || cached.sig !== sig) todo.push({ avatar: c.avatar, text, sig });
+    }
+    if (!todo.length) return Promise.resolve(0);
+
+    const listeners = new Set(onProgress ? [onProgress] : []);
+    const total = todo.length;
+    let done = 0;
+    let next = 0;
+    const worker = async () => {
+        while (next < todo.length) {
+            const job = todo[next++];
+            let count;
+            try {
+                count = job.text ? await ctx().getTokenCountAsync(job.text) : 0;
+            } catch {
+                count = Math.ceil(job.text.length / 4); // same fallback the Preview tab uses
+            }
+            tokenCache.set(job.avatar, { sig: job.sig, count });
+            done++;
+            for (const l of listeners) { try { l(done, total); } catch { /* ignore */ } }
+        }
+    };
+    const promise = Promise.all(Array.from({ length: Math.min(4, total) }, worker))
+        .then(() => total)
+        .finally(() => { tokenRun = null; });
+    tokenRun = { promise, listeners };
+    return promise;
+}
+
 export function getCharacters() {
     const list = ctx()?.characters ?? [];
     const sections = sectionsStore();
@@ -155,6 +245,7 @@ export function getCharacters() {
         const d = c.data ?? {};
         const depth = d.extensions?.depth_prompt ?? {};
         const core = sections[c.avatar]?.core;
+        const cached = tokenCache.get(c.avatar);
         return {
             id: c.avatar,
             avatar: c.avatar,
@@ -185,6 +276,9 @@ export function getCharacters() {
                 role: depth.role ?? 'system',
             },
             created: Date.parse(c.create_date ?? '') || index,
+            // null until counted (or if the card changed since it was) —
+            // callers treat null as "unknown", never as zero.
+            tokens: cached && cached.sig === cardTextFor(c).sig ? cached.count : null,
         };
     });
 }
@@ -412,6 +506,83 @@ export async function openCharacterLore(avatar) {
     }, 50);
 }
 
+/*
+ * Per-character image Gallery — the same folder SillyTavern's own built-in
+ * Gallery extension uses, so anything added here shows up there and vice
+ * versa. Contract confirmed against ST's own gallery extension + images
+ * endpoint source: the folder is `extensionSettings.gallery.folders[avatar]`
+ * if the person has set a custom one, otherwise the character's name;
+ * POST /api/images/list returns bare file names; files are served from
+ * `user/images/<sanitized folder>/<file>`; POST /api/images/upload takes
+ * base64 + format + ch_name (the folder).
+ */
+const VIDEO_EXTENSIONS = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', '3gp', 'mkv', 'mpg'];
+const isVideoFile = (file) => VIDEO_EXTENSIONS.includes(String(file).split('.').pop().toLowerCase());
+const MEDIA_IMAGE_AND_VIDEO = 0b011; // ST's MEDIA_REQUEST_TYPE.IMAGE | .VIDEO
+
+export function getGalleryFolder(avatar) {
+    const override = ctx()?.extensionSettings?.gallery?.folders?.[avatar];
+    return override ?? findCharacter(avatar)?.character?.name ?? '';
+}
+
+async function sanitizeFolderName(folder) {
+    try {
+        const res = await postJSON('/api/files/sanitize-filename', { fileName: folder });
+        return (await res.json()).fileName ?? folder;
+    } catch {
+        return folder;
+    }
+}
+
+export async function listGalleryImages(avatar) {
+    const folder = getGalleryFolder(avatar);
+    if (!folder) return { folder: '', items: [] };
+    const res = await postJSON('/api/images/list', { folder, sortField: 'date', sortOrder: 'desc', type: MEDIA_IMAGE_AND_VIDEO });
+    const files = await res.json();
+    const safe = await sanitizeFolderName(folder);
+    const items = (Array.isArray(files) ? files : []).map((file) => ({
+        file,
+        video: isVideoFile(file),
+        src: `user/images/${encodeURIComponent(safe)}/${encodeURIComponent(file)}`,
+    }));
+    return { folder: safe, items };
+}
+
+function readAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error ?? new Error('Could not read the file.'));
+        reader.readAsDataURL(file);
+    });
+}
+
+/** Uploads one or more files into this character's gallery folder. Resolves with { ok, failed } counts. */
+export async function uploadGalleryImages(avatar, files) {
+    const folder = getGalleryFolder(avatar);
+    if (!folder) throw new Error('This character has no gallery folder.');
+    const stamp = Date.now();
+    let ok = 0;
+    let failed = 0;
+    const list = Array.from(files ?? []);
+    for (let i = 0; i < list.length; i++) {
+        const file = list[i];
+        try {
+            const format = (file.name.split('.').pop() ?? '').toLowerCase().trim();
+            const base64 = (await readAsDataURL(file)).split(',')[1];
+            // Unique per file within a batch — the server would otherwise
+            // name each one Date.now(), and two files landing in the same
+            // millisecond would overwrite each other.
+            await postJSON('/api/images/upload', { image: base64, format, ch_name: folder, filename: `${stamp}_${i}` });
+            ok++;
+        } catch (e) {
+            console.warn('[CharacterCanvas] gallery upload failed for', file?.name, e);
+            failed++;
+        }
+    }
+    return { ok, failed };
+}
+
 export const stAdapter = {
     getCharacters,
     getActiveId,
@@ -433,5 +604,9 @@ export const stAdapter = {
     saveCharacterSections,
     composeDescription,
     getTokenCount,
+    countAllTokens,
+    getGalleryFolder,
+    listGalleryImages,
+    uploadGalleryImages,
     openCharacterLore,
 };

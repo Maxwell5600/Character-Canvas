@@ -136,6 +136,32 @@
     pointer-events: none;
 }
 
+/* Echoes whatever the grid is currently sorted by (creator, token count) so
+   the sort order is verifiable at a glance. Top-left like the ACTIVE pill,
+   so the active tile's badge steps down below it; max-width leaves the
+   favorite star's corner clear. */
+.cc-tile-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    max-width: calc(100% - 34px);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.66em;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+.cc-tile.cc-active .cc-tile-badge {
+    top: 24px;
+}
+
 .cc-tile-name {
     position: absolute;
     inset: auto 0 0 0;
@@ -1252,6 +1278,33 @@
     flex: 0 0 auto;
 }
 
+.cc-greeting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cc-greeting-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cc-greeting-label {
+    font-size: 0.78em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    opacity: 0.65;
+}
+
+.cc-greeting-head .cc-icon-btn {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+}
+
 .cc-section-content {
     min-height: 60px;
     resize: vertical;
@@ -1813,4 +1866,62 @@ body.cc-active #right-nav-panel {
     body.cc-active:not(.cc-native-override):not(:has(.ptmt-pane-grid #right-nav-panel)) #right-nav-panel.fillRight.openDrawer {
         height: auto !important;
     }
+}
+
+/* ---------- Gallery tab ---------- */
+
+.cc-gallery-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.cc-gallery-note {
+    font-size: 0.78em;
+    opacity: 0.65;
+    word-break: break-all;
+}
+
+.cc-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.cc-gallery-item {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    display: block;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid var(--cc-border);
+    background: var(--cc-surface-2);
+    cursor: zoom-in;
+    transition: border-color 120ms ease;
+}
+
+.cc-gallery-item:hover {
+    border-color: var(--cc-accent);
+}
+
+.cc-gallery-item img,
+.cc-gallery-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cc-gallery-video {
+    cursor: default;
+}
+
+.cc-gallery-empty {
+    grid-column: 1 / -1;
+    padding: 20px 4px;
+    font-size: 0.85em;
+    line-height: 1.5;
+    opacity: 0.6;
 }

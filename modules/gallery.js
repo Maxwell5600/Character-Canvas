@@ -72,7 +72,14 @@ export function createCharacterCanvas(container, adapter) {
     let sectionsDraft = null;
     // Working copy of every OTHER native field, as its own plain object.
     let fieldsDraft = null;
-    let detailTab = 'details'; // 'details' | 'edit' | 'preview'
+    let detailTab = 'details'; // 'details' | 'edit' | 'preview' | 'gallery'
+    // Last-loaded Gallery listing for the open character ({ avatar, folder, items }),
+    // so flipping tabs back and forth (or any re-render) doesn't refetch the folder.
+    let galleryCache = null;
+    // Token-count bookkeeping for the token-based sorts (see ensureTokens()).
+    let tokensBusy = false;
+    let tokenStatus = '';
+    let baseCountText = '';
 
     const root = el('div', { class: 'cc-root', 'data-character-canvas': '' });
     container.append(root);
@@ -122,6 +129,9 @@ export function createCharacterCanvas(container, adapter) {
         el('option', { value: 'name-desc', text: 'Name (Z\u2013A)' }),
         el('option', { value: 'created', text: 'Recently created' }),
         el('option', { value: 'favorite', text: 'Favorites first' }),
+        el('option', { value: 'creator', text: 'Creator (A\u2013Z)' }),
+        el('option', { value: 'tokens-desc', text: 'Tokens (high \u2192 low)' }),
+        el('option', { value: 'tokens-asc', text: 'Tokens (low \u2192 high)' }),
     ]);
     sort.value = settings.sort;
 
@@ -210,9 +220,34 @@ export function createCharacterCanvas(container, adapter) {
         const q = norm(settings.query).trim();
         let list = all.filter((c) => {
             if (!q) return true;
-            return norm(c.name).includes(q) || norm(c.description).includes(q) || norm(c.tags?.join(' ')).includes(q);
+            return norm(c.name).includes(q) || norm(c.description).includes(q) || norm(c.tags?.join(' ')).includes(q) || norm(c.creator).includes(q);
         });
+        const byName = (a, b) => norm(a.name).localeCompare(norm(b.name));
+        // Cards with no creator written in always sink to the bottom, so the
+        // sort reads as "everyone who actually credits someone, grouped by
+        // that person" instead of a wall of blanks up top.
+        const byCreator = (a, b) => {
+            const ac = norm(a.creator).trim();
+            const bc = norm(b.creator).trim();
+            if (!ac && !bc) return byName(a, b);
+            if (!ac) return 1;
+            if (!bc) return -1;
+            return ac.localeCompare(bc) || byName(a, b);
+        };
+        // Same idea for token counts: a card that hasn't been counted yet
+        // (null) sinks to the bottom in BOTH directions rather than being
+        // treated as 0 — otherwise "highest first" would wrongly list
+        // not-yet-counted cards last but "lowest first" would list them first.
+        const byTokens = (dir) => (a, b) => {
+            if (a.tokens == null && b.tokens == null) return byName(a, b);
+            if (a.tokens == null) return 1;
+            if (b.tokens == null) return -1;
+            return (dir === 'desc' ? b.tokens - a.tokens : a.tokens - b.tokens) || byName(a, b);
+        };
         const by = {
+            'creator': byCreator,
+            'tokens-desc': byTokens('desc'),
+            'tokens-asc': byTokens('asc'),
             'name': (a, b) => norm(a.name).localeCompare(norm(b.name)),
             'name-desc': (a, b) => norm(b.name).localeCompare(norm(a.name)),
             'created': (a, b) => (b.created ?? 0) - (a.created ?? 0),
@@ -226,13 +261,15 @@ export function createCharacterCanvas(container, adapter) {
         const activeId = adapter.getActiveId?.() ?? null;
         const scrollTop = gridWrap.scrollTop;
         grid.replaceChildren();
-        count.textContent = `${list.length} character${list.length === 1 ? '' : 's'}`;
+        baseCountText = `${list.length} character${list.length === 1 ? '' : 's'}`;
+        updateCount();
 
         if (!list.length) {
             gridWrap.replaceChildren(el('div', {
                 class: 'cc-empty',
                 text: (adapter.getCharacters() ?? []).length ? 'No characters match your filters.' : 'No characters yet.',
             }));
+            ensureTokens();
             return;
         }
         if (!gridWrap.contains(grid)) gridWrap.replaceChildren(grid);
@@ -244,11 +281,60 @@ export function createCharacterCanvas(container, adapter) {
             }, [
                 charImg({ alt: c.name, loading: 'lazy', decoding: 'async', src: adapter.imageUrl ? adapter.imageUrl(c.id) : c.image }, c.id, adapter),
                 el('span', { class: 'cc-tile-name', text: c.name }),
+                tileBadge(c),
                 c.favorite ? el('i', { class: 'fa-solid fa-star cc-tile-favorite', title: 'Favorite' }) : null,
             ].filter(Boolean));
             grid.append(tile);
         }
         gridWrap.scrollTop = scrollTop;
+        ensureTokens();
+    }
+
+    function updateCount() {
+        count.textContent = baseCountText + tokenStatus;
+    }
+
+    // A small always-visible label on each tile that echoes whatever the
+    // grid is currently sorted by — the sort is much easier to trust when
+    // you can SEE the value it's sorting on.
+    function tileBadge(c) {
+        const mode = String(settings.sort);
+        if (mode === 'creator') {
+            return el('span', { class: 'cc-tile-badge', text: c.creator?.trim() || 'No creator', title: 'Creator' });
+        }
+        if (mode.startsWith('tokens')) {
+            return el('span', {
+                class: 'cc-tile-badge',
+                text: c.tokens == null ? '\u2026' : `${c.tokens.toLocaleString()} tok`,
+                title: c.tokens == null ? 'Counting\u2026' : 'Tokens sent to the model for this card (Description, Personality, Scenario, First Message, Example Dialogue, System Prompt, Post-History, Depth Prompt)',
+            });
+        }
+        return null;
+    }
+
+    // Token counts are computed lazily, in the background, only while a
+    // token-based sort is actually selected — nobody pays for counting 280+
+    // cards just for opening the gallery. Cached per card (see the adapter),
+    // so after the first pass only edited cards get recounted.
+    function ensureTokens() {
+        if (!adapter.countAllTokens || !String(settings.sort).startsWith('tokens') || tokensBusy) return;
+        tokensBusy = true;
+        adapter.countAllTokens({
+            onProgress: (done, total) => { tokenStatus = ` \u00b7 counting tokens ${done}/${total}`; updateCount(); },
+        }).then((recounted) => {
+            tokensBusy = false;
+            tokenStatus = '';
+            updateCount();
+            // Re-render (and thereby re-sort) only if something actually
+            // changed — an already-fully-counted pass resolves with 0, which
+            // is also what keeps this from re-triggering itself forever.
+            if (recounted) renderGrid();
+        }).catch((e) => {
+            tokensBusy = false;
+            tokenStatus = '';
+            updateCount();
+            console.warn('[CharacterCanvas] token counting failed', e);
+        });
     }
 
     function select(id) {
@@ -530,8 +616,12 @@ export function createCharacterCanvas(container, adapter) {
             greetWrap.replaceChildren(...fields.alternate_greetings.map((g, i) => {
                 const area = el('textarea', { class: 'cc-section-content', rows: '3', spellcheck: 'false', oninput: () => { dirty = true; fields.alternate_greetings[i] = area.value; } });
                 area.value = g;
-                const removeBtn = el('button', { class: 'cc-icon-btn cc-icon-danger', type: 'button', title: 'Remove', onclick: () => { dirty = true; fields.alternate_greetings.splice(i, 1); renderGreetings(); } });
-                return el('div', { class: 'cc-section-row' }, [el('div', { class: 'cc-section-row-head' }, [el('span', { class: 'cc-section-title', text: `Greeting ${i + 1}` }), removeBtn]), el('div', { class: 'cc-section-content-wrap' }, [area])]);
+                const removeBtn = el('button', { class: 'cc-icon-btn cc-icon-danger', type: 'button', title: 'Remove this greeting', onclick: () => { dirty = true; fields.alternate_greetings.splice(i, 1); renderGreetings(); } }, [el('i', { class: 'fa-solid fa-xmark' })]);
+                // Plain label + textarea, NOT the bordered .cc-section-row card
+                // the Sections editor uses — every other field in this tab is
+                // flat, and borrowing that card style is what left the
+                // greetings boxed while everything around them wasn't.
+                return el('div', { class: 'cc-greeting-row' }, [el('div', { class: 'cc-greeting-head' }, [el('span', { class: 'cc-greeting-label', text: `Greeting ${i + 1}` }), removeBtn]), el('div', { class: 'cc-section-content-wrap' }, [area])]);
             }));
         }
         renderGreetings();
@@ -602,6 +692,81 @@ export function createCharacterCanvas(container, adapter) {
             el('div', { class: 'cc-preview-toolbar' }, [tokenBadge, expandBtn]),
             output,
         );
+        return wrap;
+    }
+
+    /**
+     * Gallery tab — the same per-character image folder SillyTavern's own
+     * built-in Gallery uses (so anything added there shows up here and the
+     * other way round). View, click-to-enlarge, and add; deliberately NOT
+     * delete — removing files from disk is the one thing here that can't be
+     * undone, and the built-in Gallery already has a dedicated delete mode
+     * for exactly that.
+     */
+    function renderGalleryTab(c) {
+        const wrap = el('div', { class: 'cc-details-view cc-gallery-view' });
+        const status = el('div', { class: 'cc-gallery-note' });
+        const gridEl = el('div', { class: 'cc-gallery-grid' });
+        const fileInput = el('input', { type: 'file', accept: 'image/*,video/*', multiple: true, hidden: true });
+        const addBtn = adapter.uploadGalleryImages && el('button', {
+            class: 'cc-btn cc-primary', type: 'button', title: 'Add images or videos to this character\u2019s gallery',
+            onclick: () => fileInput.click(),
+        }, [el('i', { class: 'fa-solid fa-plus' }), el('span', { text: ' Add images' })]);
+        const reloadBtn = el('button', { class: 'cc-icon-btn', type: 'button', title: 'Reload this folder', onclick: () => load() }, [el('i', { class: 'fa-solid fa-rotate' })]);
+
+        function paint(data) {
+            status.textContent = data.items.length
+                ? `${data.items.length} item${data.items.length === 1 ? '' : 's'} \u00b7 user/images/${data.folder}`
+                : `Nothing here yet \u00b7 images go in user/images/${data.folder}`;
+            if (!data.items.length) {
+                gridEl.replaceChildren(el('div', { class: 'cc-gallery-empty', text: 'No images in this character\u2019s gallery yet. Add some above, or drop files into that folder \u2014 SillyTavern\u2019s built-in Gallery uses the same one.' }));
+                return;
+            }
+            gridEl.replaceChildren(...data.items.map((item) => item.video
+                ? el('div', { class: 'cc-gallery-item cc-gallery-video' }, [el('video', { src: item.src, controls: true, preload: 'metadata' })])
+                : el('button', { class: 'cc-gallery-item', type: 'button', title: item.file, onclick: () => openLightbox(item.src, item.file) }, [
+                    el('img', { src: item.src, alt: item.file, loading: 'lazy', decoding: 'async' }),
+                ])));
+        }
+
+        async function load() {
+            status.textContent = 'Loading\u2026';
+            try {
+                const data = await adapter.listGalleryImages(c.id);
+                galleryCache = { avatar: c.id, ...data };
+                if (wrap.isConnected) paint(galleryCache);
+            } catch (e) {
+                console.error('[CharacterCanvas] gallery load failed', e);
+                if (wrap.isConnected) {
+                    status.textContent = 'Couldn\u2019t load this gallery \u2014 see the console.';
+                    gridEl.replaceChildren();
+                }
+            }
+        }
+
+        fileInput.addEventListener('change', async () => {
+            const files = Array.from(fileInput.files ?? []);
+            fileInput.value = '';
+            if (!files.length) return;
+            addBtn?.setAttribute('disabled', '');
+            status.textContent = `Uploading ${files.length} file${files.length === 1 ? '' : 's'}\u2026`;
+            try {
+                const { ok, failed } = await adapter.uploadGalleryImages(c.id, files);
+                if (ok) globalThis.toastr?.success?.(`Added ${ok} file${ok === 1 ? '' : 's'}.`, 'Character Canvas');
+                if (failed) globalThis.toastr?.error?.(`${failed} file${failed === 1 ? '' : 's'} couldn\u2019t be uploaded (unsupported type or too large).`, 'Character Canvas');
+            } catch (e) {
+                console.error('[CharacterCanvas] gallery upload failed', e);
+                globalThis.toastr?.error?.('Could not upload to this gallery.', 'Character Canvas');
+            }
+            addBtn?.removeAttribute('disabled');
+            galleryCache = null;
+            load();
+        });
+
+        wrap.append(el('div', { class: 'cc-gallery-toolbar' }, [addBtn, reloadBtn, fileInput].filter(Boolean)), status, gridEl);
+
+        if (galleryCache?.avatar === c.id) paint(galleryCache);
+        else load();
         return wrap;
     }
 
@@ -735,6 +900,7 @@ export function createCharacterCanvas(container, adapter) {
             el('button', { class: `cc-detail-tab${detailTab === 'details' ? ' active' : ''}`, type: 'button', text: 'Details', onclick: () => { detailTab = 'details'; renderDetail(); } }),
             adapter.updateCharacter && el('button', { class: `cc-detail-tab${detailTab === 'edit' ? ' active' : ''}`, type: 'button', text: 'Edit', onclick: () => { detailTab = 'edit'; renderDetail(); } }),
             el('button', { class: `cc-detail-tab${detailTab === 'preview' ? ' active' : ''}`, type: 'button', text: 'Preview', title: 'Exactly what gets written into Description', onclick: () => { detailTab = 'preview'; renderDetail(); } }),
+            adapter.listGalleryImages && el('button', { class: `cc-detail-tab${detailTab === 'gallery' ? ' active' : ''}`, type: 'button', text: 'Gallery', title: 'Extra images saved for this character', onclick: () => { galleryCache = null; detailTab = 'gallery'; renderDetail(); } }),
         ].filter(Boolean));
 
         // -- hero image column: photo, then a nav bar (prev / replace / next) below it, not overlaid on top --
@@ -755,6 +921,7 @@ export function createCharacterCanvas(container, adapter) {
         let tabContent;
         if (detailTab === 'details') tabContent = renderDetailsTab(c, sectionsDraft);
         else if (detailTab === 'edit' && adapter.updateCharacter) tabContent = renderEditTab(c, sectionsDraft, fieldsDraft, noteEl);
+        else if (detailTab === 'gallery' && adapter.listGalleryImages) tabContent = renderGalleryTab(c);
         else tabContent = renderPreviewTab(c, sectionsDraft);
 
         const body = el('div', { class: 'cc-detail-body' }, [heroWrap, tabContent]);
